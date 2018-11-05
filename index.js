@@ -3,8 +3,8 @@ const Discord = require('discord.js');
 const bot = new Discord.Client();
 
 // trent id
-const trentID = 223643711949635585; 
-const nickID = 116707486773280776;
+const trentID = botconfig.trentID; 
+const nickID = botconfig.nickID;
 
 // shiffle function
 function Shuffle(o) {
