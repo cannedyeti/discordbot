@@ -1,12 +1,33 @@
+require('es6-promise').polyfill();
+require('isomorphic-fetch');
 const botconfig = require("./botconfig.json");
 const Discord = require('discord.js');
 const bot = new Discord.Client();
 
-// trent id
 const trentID = botconfig.trentID; 
 const nickID = botconfig.nickID;
+const riotKey = botconfig.riotAPIKey;
+var currentPatch;
+var leagueChampionData;
 
-// shiffle function
+// get static league data and current patch
+fetch('https://ddragon.leagueoflegends.com/api/versions.json')
+.then(function(res) {
+    return res.json();
+}).then(function(patch) {
+    return currentPatch = patch[0];
+}).then(function() {
+    fetch('http://ddragon.leagueoflegends.com/cdn/' + currentPatch + '/data/en_US/champion.json')
+    .then(function(response) {
+        return response.json();
+    })
+    .then(function(json) {
+        return leagueChampionData = json;
+    })
+})
+
+
+// shuffle function
 function Shuffle(o) {
 	for(var j, x, i = o.length; i; j = parseInt(Math.random() * i), x = o[--i], o[i] = o[j], o[j] = x);
 	return o;
@@ -24,8 +45,7 @@ const random = function() {
     }
     return false;
 }
-// react to nicks messages and call out reposts
-// nick id = 116707486773280776
+
 bot.on('message', (async function (message) {
     if(message.author.id === trentID) {
         return message.channel.send("Fuck off Trent.")
@@ -101,6 +121,7 @@ bot.on('message', (async function (message) {
         }
     }
 
+    // react to nicks messages and call out reposts
     if (message.author.id == nickID && (message.attachments.size > 0 || message.content.includes('.com')) && random()) {
         await message.react('🇷');
         await message.react('🇪');
@@ -108,7 +129,33 @@ bot.on('message', (async function (message) {
         await message.react('🇴');
         await message.react('🇸');
         await message.react('🇹');
-   } 
+    }
+    if(cmd === `${prefix}champ`) {
+        var champ = args[0];
+        var champData = leagueChampionData.data[champ];
+        let richEmbed = new Discord.RichEmbed()
+        .setTitle(champ)
+        .setColor("#0000ff")
+        .addField("About", champData.blurb)
+        .setImage("http://ddragon.leagueoflegends.com/cdn/" + currentPatch + "/img/champion/" + champ + ".png")
+        message.channel.send(richEmbed)
+    } 
+    if(cmd === `${prefix}mastery`) {
+        var summoner = args.join('');
+        fetch('https://na1.api.riotgames.com/lol/summoner/v3/summoners/by-name/' + summoner + '?api_key=' + riotKey)
+        .then(res => {
+            return res.json();
+        }).then(res => {
+            console.log("acc id", res.accountId);
+            var sID = res.accountId;
+            fetch('https://na1.api.riotgames.com/lol/champion-mastery/v3/champion-masteries/by-summoner/' + sID + '?api_key=' + riotKey)
+            .then(res => {
+                return res.json();
+            }).then(fin => {
+                console.log("finals", fin);
+            })
+        })
+    }
 }));
 
 
