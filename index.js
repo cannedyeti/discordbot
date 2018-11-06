@@ -3,10 +3,12 @@ require('isomorphic-fetch');
 const botconfig = require("./botconfig.json");
 const Discord = require('discord.js');
 const bot = new Discord.Client();
+const ascii = require('ascii-art');
 
 const trentID = botconfig.trentID; 
 const nickID = botconfig.nickID;
 const riotKey = botconfig.riotAPIKey;
+const ggKey = botconfig.champggKey;
 var currentPatch;
 var leagueChampionData;
 
@@ -47,7 +49,7 @@ const random = function() {
 }
 
 bot.on('message', (async function (message) {
-    if(message.author.id === trentID) {
+    if(message.author.id === trentID && random()) {
         return message.channel.send("Fuck off Trent.")
     }
 
@@ -66,7 +68,10 @@ bot.on('message', (async function (message) {
         .setColor('#FF000')
         .addField('?pickTeams', '<teamOneName teamTwoName> - Team names not required')
         .addField('?say', '<message for bot to say>')
-        .addField('?purge', '<number of recent messages to delete> - Must be Admin');
+        .addField('?purge', '<number of recent messages to delete> - Must be Admin')
+        .addField('?mastery', '<summoner name>')
+        .addField('?ascii', '<text to make into ascii-art>')
+        .addField('?champ', '<league champion info>');
 
         message.channel.send(helpEmbed);
     }
@@ -131,7 +136,8 @@ bot.on('message', (async function (message) {
         await message.react('🇹');
     }
     if(cmd === `${prefix}champ`) {
-        var champ = args[0];
+        var champ = args[0].toLowerCase();
+        champ = champ.charAt(0).toUpperCase() + champ.slice(1);
         var champData = leagueChampionData.data[champ];
         let richEmbed = new Discord.RichEmbed()
         .setTitle(champ)
@@ -141,21 +147,61 @@ bot.on('message', (async function (message) {
         message.channel.send(richEmbed)
     } 
     if(cmd === `${prefix}mastery`) {
-        var summoner = args.join('');
+        var summoner = args.join(''), champArr;
         fetch('https://na1.api.riotgames.com/lol/summoner/v3/summoners/by-name/' + summoner + '?api_key=' + riotKey)
         .then(res => {
             return res.json();
         }).then(res => {
-            console.log("acc id", res.accountId);
-            var sID = res.accountId;
+            var name = res.name;
+            var sID = res.id;
             fetch('https://na1.api.riotgames.com/lol/champion-mastery/v3/champion-masteries/by-summoner/' + sID + '?api_key=' + riotKey)
             .then(res => {
                 return res.json();
-            }).then(fin => {
-                console.log("finals", fin);
+            }).then(res => {
+                champArr = res.slice(0, 5);
+                var topChamps = [];
+                champArr.forEach(single => {
+                    for(champ in leagueChampionData.data){
+                        if(leagueChampionData.data[champ].key == single.championId) {
+                            topChamps.push({"champion": leagueChampionData.data[champ], "points": single.championPoints})
+                        }
+                    }
+                })
+                let richEmbed = new Discord.RichEmbed()
+                .setTitle(name + "'s Top Played Champions")
+                .setColor("#0000ff")
+                .addField(topChamps[0].champion.id, topChamps[0].points + " mastery points")
+                .addField(topChamps[1].champion.id, topChamps[1].points + " mastery points")
+                .addField(topChamps[2].champion.id, topChamps[2].points + " mastery points")
+                .addField(topChamps[3].champion.id, topChamps[3].points + " mastery points")
+                .addField(topChamps[4].champion.id, topChamps[4].points + " mastery points")
+                .setImage("http://ddragon.leagueoflegends.com/cdn/" + currentPatch + "/img/champion/" + topChamps[0].champion.id + ".png")
+                message.channel.send(richEmbed)
             })
         })
     }
+    if(cmd === `${prefix}ascii`) {
+        ascii.font(args.join(' '), 'Doom', function(rendered){
+            rendered = rendered.trimRight();
+            message.channel.send(rendered, {
+                code: 'md'
+            })
+        })
+    }
+    if(cmd === `${prefix}build`) {
+        var champ = args[0].toLowerCase(), champId;
+        champ = champ.charAt(0).toUpperCase() + champ.slice(1);
+        champId = leagueChampionData.data[champ].key;
+        fetch('http://api.champion.gg/v2/champions/' + champId + '?limit=200&champData=hashes&api_key=' + ggKey)
+        .then(res=> {
+            return res.json();
+        }).then(res => {
+            var buildHash = res[0].hashes.finalitemshashfixed.highestCount.hash;
+            buildHash = buildHash.split("-").slice(1);
+            console.log("champs", buildHash)
+        })
+    }
+
 }));
 
 
