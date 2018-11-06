@@ -9,8 +9,7 @@ const trentID = botconfig.trentID;
 const nickID = botconfig.nickID;
 const riotKey = botconfig.riotAPIKey;
 const ggKey = botconfig.champggKey;
-var currentPatch;
-var leagueChampionData;
+var currentPatch, leagueChampionData, leagueItemData;
 
 // get static league data and current patch
 fetch('https://ddragon.leagueoflegends.com/api/versions.json')
@@ -25,6 +24,13 @@ fetch('https://ddragon.leagueoflegends.com/api/versions.json')
     })
     .then(function(json) {
         return leagueChampionData = json;
+    })
+}).then(function() {
+    fetch('http://ddragon.leagueoflegends.com/cdn/' + currentPatch + '/data/en_US/item.json')
+    .then(res => {
+        return res.json();
+    }).then(res => {
+        return leagueItemData = res;
     })
 })
 
@@ -66,12 +72,13 @@ bot.on('message', (async function (message) {
         .setTitle('Command Help')
         .setDescription('Here is a list of commands and usage')
         .setColor('#FF000')
-        .addField('?pickTeams', '<teamOneName teamTwoName> - Team names not required')
         .addField('?say', '<message for bot to say>')
         .addField('?purge', '<number of recent messages to delete> - Must be Admin')
-        .addField('?mastery', '<summoner name>')
         .addField('?ascii', '<text to make into ascii-art>')
-        .addField('?champ', '<league champion info>');
+        .addField('?pickTeams', '<teamOneName teamTwoName> - Team names not required')
+        .addField('?mastery', '<summoner name>')
+        .addField('?build', '<champname>')
+        .addField('?champ', '<league champion info>')
 
         message.channel.send(helpEmbed);
     }
@@ -192,14 +199,33 @@ bot.on('message', (async function (message) {
         var champ = args[0].toLowerCase(), champId;
         champ = champ.charAt(0).toUpperCase() + champ.slice(1);
         champId = leagueChampionData.data[champ].key;
+        var build = {"most": [], "highest": [], skillOrder: ''};
         fetch('http://api.champion.gg/v2/champions/' + champId + '?limit=200&champData=hashes&api_key=' + ggKey)
         .then(res=> {
             return res.json();
         }).then(res => {
-            var buildHash = res[0].hashes.finalitemshashfixed.highestCount.hash;
-            buildHash = buildHash.split("-").slice(1);
-            console.log("champs", buildHash)
-        })
+            var mostBuiltHash = res[0].hashes.finalitemshashfixed.highestCount.hash;
+            var highestBuildHash = res[0].hashes.finalitemshashfixed.highestWinrate.hash;
+            build.skillOrder = res[0].hashes.skillorderhash.highestCount.hash.split("-").slice(1);
+            mostBuiltHash = mostBuiltHash.split("-").slice(1);
+            highestBuildHash = highestBuildHash.split("-").slice(1);
+            mostBuiltHash.forEach(item => {
+                build.most.push(leagueItemData.data[item].name);
+            })
+            highestBuildHash.forEach(item => {
+                build.highest.push(leagueItemData.data[item].name);
+            })
+        }).then(() => {
+            console.log(champId)
+            let richEmbed = new Discord.RichEmbed()
+            .setTitle(champ + "'s Items")
+            .setColor("#0000ff")
+            .addField("Most built", build.most[0] + ", " + build.most[1] + ", " + build.most[2] + ", " + build.most[3] + ", " + build.most[4] + ", " + build.most[5])
+            .addField("Highest winrate", build.highest[0] + ", " + build.highest[1] + ", " + build.highest[2] + ", " + build.highest[3] + ", " + build.highest[4] + ", " + build.highest[5])
+            .addField("Skillorder", build.skillOrder.join("->"))
+            .setImage("http://ddragon.leagueoflegends.com/cdn/" + currentPatch + "/img/champion/" + champ + ".png")
+            message.channel.send(richEmbed)
+        }) //end fetch
     }
 
 }));
